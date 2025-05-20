@@ -1,9 +1,13 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_inappwebview/flutter_inappwebview.dart';
+import 'package:flutter_rss_news_reader/extensions/extensions.dart';
+
 import 'package:http/http.dart' as http;
 import 'package:xml/xml.dart';
 
 import '../model/item.dart';
+import 'components/web_view_alert.dart';
+import 'parts/news_dialog.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -124,111 +128,58 @@ class _NewsListViewState extends State<NewsListView> {
       itemCount: widget.newsItems.length,
       itemBuilder: (context, index) {
         final newsItem = widget.newsItems[index];
-        return ListTile(
-          title: Text(newsItem.title),
-          subtitle: Text(newsItem.link),
-          onTap: () {
-            Navigator.push(context, MaterialPageRoute(builder: (context) => NewsDetailPage(newsItem: newsItem)));
-          },
+
+        return ConstrainedBox(
+          constraints: BoxConstraints(minHeight: context.screenSize.height / 10),
+
+          child: Container(
+            padding: EdgeInsets.all(10),
+            // ignore: deprecated_member_use
+            decoration: BoxDecoration(border: Border(bottom: BorderSide(color: Colors.white.withOpacity(0.3)))),
+
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SizedBox(
+                  width: 60,
+                  child: CachedNetworkImage(
+                    imageUrl: newsItem.image,
+                    placeholder: (BuildContext context, String url) => Image.asset('assets/images/no_image.png'),
+                    errorWidget: (BuildContext context, String url, Object error) => const Icon(Icons.error),
+                  ),
+                ),
+                SizedBox(width: 20),
+
+                Expanded(
+                  child: DefaultTextStyle(
+                    style: TextStyle(fontSize: 12),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(newsItem.title, maxLines: 3, overflow: TextOverflow.ellipsis),
+                        SizedBox(height: 5),
+                        Text(
+                          newsItem.description,
+                          maxLines: 3,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(color: Colors.grey),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+
+                SizedBox(width: 20),
+
+                GestureDetector(
+                  onTap: () => NewsDialog(context: context, widget: WebViewAlert(url: newsItem.link)),
+                  child: Icon(Icons.call_made, color: Colors.white.withValues(alpha: 0.4)),
+                ),
+              ],
+            ),
+          ),
         );
       },
-    );
-  }
-}
-
-//////////////////////////////////////////////////////////////
-
-class NewsDetailPage extends StatefulWidget {
-  const NewsDetailPage({super.key, required this.newsItem});
-
-  final ItemModel newsItem;
-
-  @override
-  State<NewsDetailPage> createState() => _NewsDetailPageState();
-}
-
-class _NewsDetailPageState extends State<NewsDetailPage> {
-  ///
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: Text(widget.newsItem.title)),
-      body: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(widget.newsItem.title, style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
-            SizedBox(height: 16),
-            Text('Link: ${widget.newsItem.link}', style: TextStyle(fontSize: 16, color: Colors.blue)),
-            SizedBox(height: 32),
-            ElevatedButton(
-              onPressed:
-                  () => Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (context) => WebViewScreen(url: widget.newsItem.link)),
-                  ),
-              child: Text('Open in WebView'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-//////////////////////////////////////////////////////////////
-
-class WebViewScreen extends StatefulWidget {
-  const WebViewScreen({super.key, required this.url});
-
-  final String url;
-
-  @override
-  // ignore: library_private_types_in_public_api
-  _WebViewScreenState createState() => _WebViewScreenState();
-}
-
-class _WebViewScreenState extends State<WebViewScreen> {
-  late InAppWebViewController webViewController;
-
-  late PullToRefreshController pullToRefreshController;
-
-  double progress = 0;
-
-  ///
-  @override
-  void initState() {
-    super.initState();
-
-    pullToRefreshController = PullToRefreshController(onRefresh: () async => webViewController.reload());
-  }
-
-  ///
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: Text('WebView')),
-      body: Column(
-        children: [
-          LinearProgressIndicator(
-            value: progress,
-            minHeight: 5,
-            backgroundColor: Colors.grey[300],
-            valueColor: AlwaysStoppedAnimation<Color>(Colors.blue),
-          ),
-          Expanded(
-            child: InAppWebView(
-              initialUrlRequest: URLRequest(url: WebUri(widget.url)),
-              onWebViewCreated: (controller) => webViewController = controller,
-              pullToRefreshController: pullToRefreshController,
-              onLoadStart: (controller, url) => pullToRefreshController.beginRefreshing(),
-              onLoadStop: (controller, url) async => pullToRefreshController.endRefreshing(),
-              onProgressChanged: (controller, progressValue) => setState(() => progress = progressValue / 100),
-            ),
-          ),
-        ],
-      ),
     );
   }
 }
